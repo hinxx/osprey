@@ -135,6 +135,7 @@ def _build_ariel_mock_registry():
     from osprey.services.ariel_search.ingestion.adapters.als import ALSLogbookAdapter
     from osprey.services.ariel_search.ingestion.adapters.generic import GenericJSONAdapter
     from osprey.services.ariel_search.ingestion.adapters.jlab import JLabLogbookAdapter
+    from osprey.services.ariel_search.ingestion.adapters.olog import OlogAdapter
     from osprey.services.ariel_search.ingestion.adapters.ornl import ORNLLogbookAdapter
 
     _ingestion_adapters = {
@@ -163,6 +164,15 @@ def _build_ariel_mock_registry():
                 module_path="osprey.services.ariel_search.ingestion.adapters.ornl",
                 class_name="ORNLLogbookAdapter",
                 description="ORNL logbook adapter",
+            ),
+        ),
+        "olog": (
+            OlogAdapter,
+            ArielIngestionAdapterRegistration(
+                name="olog",
+                module_path="osprey.services.ariel_search.ingestion.adapters.olog",
+                class_name="OlogAdapter",
+                description="Phoebus Olog adapter",
             ),
         ),
         "generic_json": (

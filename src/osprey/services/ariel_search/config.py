@@ -9,12 +9,15 @@ import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import UTC as _UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast, get_args
 from urllib.parse import urlsplit
 
 from osprey.ariel_attachment_view import attachment_view_enabled
 from osprey.port_layout import default_port
+from osprey_connectors.config import localize_facility
 from osprey.utils.config_paths import resolve_config_relative_path
 from osprey.utils.seconds import positive_seconds
 
@@ -482,6 +485,37 @@ def _known_ingestion_adapters() -> list[str]:
     return sorted(registered_ariel_names("ariel_ingestion_adapters"))
 
 
+def _parse_start_date(value: Any) -> datetime | None:
+    """Parse an ``ariel.ingestion.start_date`` value to an aware UTC datetime.
+
+    Accepts an ISO date or datetime; a naive one is read as facility-local.
+    ``None`` or empty means no floor (ingest the logbook's full history).
+
+    Raises:
+        ConfigurationError: If the value is set but not a readable ISO date.
+    """
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return localize_facility(value).astimezone(_UTC)
+    if not isinstance(value, str):
+        raise ConfigurationError(
+            f"ariel.ingestion.start_date must be an ISO date string, got {value!r}",
+            config_key="ingestion.start_date",
+        )
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as err:
+        raise ConfigurationError(
+            f"ariel.ingestion.start_date is not a readable ISO date: {value!r}",
+            config_key="ingestion.start_date",
+        ) from err
+    return localize_facility(parsed).astimezone(_UTC)
+
+
 @dataclass
 class IngestionConfig:
     """Configuration for logbook ingestion.
@@ -497,6 +531,9 @@ class IngestionConfig:
             be verified any other way.
         ca_bundle: Path to a PEM bundle to verify against, for a site CA that is
             not in the image trust store (optional)
+        start_date: Oldest entry to ingest, as the floor when no --since is
+            given (ISO date/datetime; naive is facility-local). None ingests
+            the logbook's full history.
         chunk_days: Days per API request for time windowing (default: 365)
         request_timeout_seconds: Timeout for HTTP requests (default: 60)
         max_retries: Maximum retry attempts for failed requests (default: 3)
@@ -507,6 +544,7 @@ class IngestionConfig:
 
     adapter: str
     source_url: str | None = None
+    start_date: datetime | None = None
     poll_interval_seconds: float = 3600.0
     proxy_url: str | None = None
     verify_ssl: bool = True
@@ -547,6 +585,7 @@ class IngestionConfig:
             )
 
         proxy_url = data.get("proxy_url") or os.environ.get("ARIEL_SOCKS_PROXY")
+        start_date = _parse_start_date(data.get("start_date"))
 
         watch = WatchConfig()
         if "watch" in data:
@@ -559,6 +598,7 @@ class IngestionConfig:
         return cls(
             adapter=data["adapter"],
             source_url=data.get("source_url"),
+            start_date=start_date,
             poll_interval_seconds=_interval_seconds(
                 data, "poll_interval_seconds", cls.poll_interval_seconds, path="ingestion"
             ),

@@ -45,6 +45,9 @@ Adapters are discovered through Osprey's central registry. The built-in ones bel
    * - **ORNL Logbook**
      - ``ornl_logbook``
      - Schema-ready prototype. Parses its logbook's JSON format into the common schema but does not yet implement that system's native API protocol.
+   * - **Phoebus Olog**
+     - ``olog``
+     - Reads a Phoebus Olog service over its REST API, read-only. The adapter never writes to the logbook; it stores entries verbatim (author, text and shift properties), like the other reference adapters. How far back it reaches is a run or config choice, not the adapter's. See `Phoebus Olog`_ below.
    * - **Generic JSON**
      - ``generic_json``
      - Reads entries from a JSON file. ``id``, ``title``, ``text``, ``author``, ``timestamp`` and ``attachments`` map onto the common schema; every other top-level field is kept as entry metadata, and an explicit ``metadata`` object merges last and wins. Useful for demos, testing, and facilities without a custom API.
@@ -52,6 +55,18 @@ Adapters are discovered through Osprey's central registry. The built-in ones bel
 **Entry times.** A time with a UTC offset, a ``Z`` or a Unix epoch is stored as that instant. A time without an offset is read in the facility zone (``system.timezone``). An entry whose time is missing or cannot be read is skipped and named in the ingest log rather than stored with a made-up time; it counts as failed in the run's totals (``osprey ariel watch``, ``osprey ariel sync``), and ``osprey ariel ingest`` reports how many it skipped. Entries ingested earlier from a logbook that writes times without an offset keep their old time until the source is ingested again.
 
 **Entry text.** The ALS eLog adapter stores entry text as plain text. It decodes HTML entities, turns the logbook's markup into line breaks, paragraphs and list items, and writes a link as its text followed by its address in parentheses. It also undoes the backslash escaping the logbook adds: ``\'``, ``\"`` and an encoded ``\&quot;`` become plain quotes, and a doubled backslash becomes one. A single backslash before any other character is kept. Text without markup keeps its line breaks and indentation. Entries stored before this behaviour are rewritten once by ``osprey ariel migrate``, which ``osprey ariel sync`` runs as its first step. Their enhancements are cleared, so the next ``osprey ariel enhance``, or each later sync or watch pass, embeds and summarises the plain text again.
+
+.. _Phoebus Olog:
+
+**Phoebus Olog.** ``source_url`` is the service root, the address that answers with the service name and version (``https://olog.example.org/Olog``); the adapter appends ``/logs/search`` itself. Reads need no credentials on a service that leaves its search open; the adapter sends none and has no write path at all, so ``ariel.ingestion.write`` is ignored and the create form saves entries locally.
+
+Entries are stored **verbatim**, the way the ALS, JLab and ORNL adapters store theirs: the ``owner`` is the entry author, the title and body are the text, and every property an entry carries --- ``Shift Info`` (operator, shift lead, phones, emails, shift id), ``Log Entry Group``, ``Client Info`` and any other --- is kept under ``metadata.properties`` as ``{property: {attribute: value}}``. ``level``, ``logbooks``, ``tags``, the title and the modification time are kept in metadata too. Because the author and shift contacts are real people, an Olog mirror holds personal data; keep its database and any copy of it (and any transcript that quotes entries) where that is acceptable.
+
+How far back an ingest reaches is **not** the adapter's decision. Pass ``--since`` for a one-off, or set ``ariel.ingestion.start_date`` (an ISO date; naive is facility-local) as the floor the deployed sync uses for its first, full ingest --- for example ``"2021-01-01"`` to keep roughly the last five years. With neither, the adapter starts at the logbook's own oldest entry, which it finds with one ``sort=up`` probe rather than any date baked into its code. ``start_date`` is a generic ``ariel.ingestion`` key, so it bounds any adapter's history, not only Olog's.
+
+**No attachment bytes.** Olog serves attachments only to a logged-in client, which this read-only ingest does not hold, so an entry records its attachment count and filenames in metadata and lists no fetchable attachment.
+
+Olog reads a window's ``start`` and ``end`` as wall-clock times in its server's zone, so the adapter writes them in the facility zone (``system.timezone``): set it to the zone the Olog server runs in. Each ``chunk_days`` window is paged a thousand entries at a time and halved whenever it holds more than Elasticsearch's ten-thousand-hit result window. An edit made to an entry after it was ingested is picked up only when its window is fetched again.
 
 **Using a custom adapter:**
 

@@ -226,6 +226,9 @@ class IngestionScheduler:
             )
 
         since = last_run_time
+        if since is None and self.config.ingestion and self.config.ingestion.start_date:
+            # First (full) ingest: bound it to the configured history floor.
+            since = self.config.ingestion.start_date
 
         if dry_run:
             count = 0

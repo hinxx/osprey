@@ -140,6 +140,12 @@ class FrameworkRegistryProvider(RegistryConfigProvider):
                     description="ORNL logbook reference format",
                 ),
                 ArielIngestionAdapterRegistration(
+                    name="olog",
+                    module_path="osprey.services.ariel_search.ingestion.adapters.olog",
+                    class_name="OlogAdapter",
+                    description="Phoebus Olog REST API: read-only, verbatim entries",
+                ),
+                ArielIngestionAdapterRegistration(
                     name="generic_json",
                     module_path="osprey.services.ariel_search.ingestion.adapters.generic",
                     class_name="GenericJSONAdapter",

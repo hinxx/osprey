@@ -1076,6 +1076,9 @@ async def run_ingest(
     config = _ariel_config(config_dict)
     _resolve_entry_expander(config, progress)
     since = localize_facility(since)
+    if since is None and config.ingestion and config.ingestion.start_date:
+        # No explicit --since: fall back to the configured history floor.
+        since = config.ingestion.start_date
     adapter_instance = get_adapter(config)
 
     if progress:
