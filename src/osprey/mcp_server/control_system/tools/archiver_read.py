@@ -25,11 +25,11 @@ logger = logging.getLogger("osprey.mcp_server.tools.archiver_read")
 DEFAULT_AUTO_BIN_POINTS = 10_000
 
 #: Waveform points one read may return, summed over every trace of every
-#: waveform channel in the request: 64 traces of 500 points. An inclusive
-#: one-hour window of a trace stored once a minute (61 traces, 30 500 points)
-#: fits. Scalar samples do not count against it — their volume is governed by
-#: the bin.
-WAVEFORM_ELEMENT_BUDGET = 32_000
+#: waveform channel in the request. Sized for large RF cavity waveforms
+#: (~35 000 points per trace), so a short burst across a handful of cavity
+#: channels fits in one read and is reduced downstream. Scalar samples do not
+#: count against it — their volume is governed by the bin.
+WAVEFORM_ELEMENT_BUDGET = 300_000
 
 #: The summary note a read carries whenever a waveform channel answered.
 WAVEFORM_NOTE = (
