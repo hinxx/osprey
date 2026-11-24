@@ -255,6 +255,30 @@ describe('renderMarkdownView', () => {
     expect(rendered.innerHTML).toBe('<p># Hi</p>');
   });
 
+  test('links open in a tab of their own; in-page anchors stay', async () => {
+    // A plain link (an Olog entry) would navigate the whole viewer away, and
+    // the hub's later selections would reach a document that no longer listens.
+    stubSanitizer();
+    vi.stubGlobal('marked', {
+      use: vi.fn(),
+      parse: vi.fn(
+        () => '<p><a href="https://olog.example/62189">e</a> <a href="#answer">a</a></p>'
+      ),
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('x') })
+    );
+    const container = document.createElement('div');
+
+    await renderMarkdownView(container, makeArtifact({ artifact_type: 'markdown' }));
+
+    const [ext, anchor] = container.querySelectorAll('a');
+    expect(ext.getAttribute('target')).toBe('_blank');
+    expect(ext.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(anchor.hasAttribute('target')).toBe(false);
+  });
+
   test('falls back to plain textContent when marked is unavailable', async () => {
     stubSanitizer();
     vi.stubGlobal(

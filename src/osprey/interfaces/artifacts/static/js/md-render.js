@@ -205,4 +205,22 @@ export function renderMarkdownInto(el, text) {
     return;
   }
   el.innerHTML = clean;
+  retargetLinks(el);
+}
+
+/**
+ * Send every link that leaves the page to a tab of its own. Rendered markdown
+ * lives in the viewer's own document, not in a frame of its own, so a plain
+ * link (an Olog entry, say) would navigate the whole viewer away: the hub
+ * keeps posting selections to a document that no longer listens, and the
+ * external page stays on screen until a reload. In-page `#` anchors stay.
+ * @param {HTMLElement} el
+ * @returns {void}
+ */
+export function retargetLinks(el) {
+  for (const a of el.querySelectorAll('a[href]')) {
+    if ((a.getAttribute('href') ?? '').startsWith('#')) continue;
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+  }
 }
